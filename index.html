@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ArborSonic 3D 生物力學參數推算與繁體中文對照器（支援不規則與多幾何樹幹）</title>
+<style>
+  :root {
+    --primary: #1b5e20;
+    --primary-mid: #2e7d32;
+    --primary-light: #e8f5e9;
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --border: #94a3b8;
+    --border-light: #e2e8f0;
+    --text: #0f172a;
+    --muted: #475569;
+    --readonly-bg: #e2e8f0;
+    --highlight-bg: #fef9c3;
+    --highlight-border: #eab308;
+    --sf-green: #8bc34a;
+    --sf-yellow: #fde047;
+    --sf-red: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Microsoft JhengHei", "微軟正黑體", -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .container {
+    max-width: 1180px;
+    margin: 22px auto;
+    padding: 0 18px 40px;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+    color: #fff;
+    padding: 20px 26px;
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(27, 94, 32, 0.2);
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    margin: 0 0 6px;
+    font-size: 21px;
+    letter-spacing: 0.4px;
+  }
+  .hero p {
+    margin: 0;
+    font-size: 13.5px;
+    opacity: 0.94;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 1.05fr 1.15fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+  }
+  .card-title {
+    font-size: 16.5px;
+    font-weight: 700;
+    color: var(--primary);
+    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--primary-light);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .input-group {
+    margin-bottom: 12px;
+  }
+  .input-group label {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: #1e293b;
+  }
+  .input-group label span.en {
+    font-weight: 400;
+    color: #64748b;
+    font-size: 12px;
+    margin-left: 4px;
+  }
+  .geom-box {
+    background: var(--primary-light);
+    border: 2px solid #66bb6a;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .scheme-tabs {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 5px;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 540px) {
+    .scheme-tabs { grid-template-columns: repeat(2, 1fr); }
+  }
+  .scheme-btn {
+    background: #fff;
+    border: 1.5px solid #81c784;
+    border-radius: 7px;
+    padding: 6px 4px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    color: #1b5e20;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    line-height: 1.25;
+  }
+  .scheme-btn small {
+    display: block;
+    font-weight: 400;
+    font-size: 10.5px;
+    opacity: 0.85;
+  }
+  .scheme-btn:hover {
+    background: #c8e6c9;
+  }
+  .scheme-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  .circ-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .circ-row input {
+    width: 135px;
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--primary);
+    padding: 6px 10px;
+    border: 2px solid var(--primary-mid);
+    border-radius: 8px;
+    text-align: right;
+    font-family: inherit;
+    background: #fff;
+  }
+  .sub-panel {
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid #a5d6a7;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-top: 10px;
+  }
+  .derived-pill {
+    display: block;
+    background: #fff;
+    border: 1px solid #81c784;
+    color: #1b5e20;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+    margin-top: 10px;
+    line-height: 1.45;
+  }
+  .warn-note {
+    font-size: 12px;
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    padding: 6px 9px;
+    border-radius: 6px;
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+  .wind-box {
+    background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .preset-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .chip {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    color: #334155;
+    transition: all 0.15s;
+  }
+  .chip:hover, .chip.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  input[type="number"], select {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid #94a3b8;
+    border-radius: 6px;
+    font-size: 13.5px;
+    font-family: inherit;
+    background: #fff;
+    color: #0f172a;
+  }
+  .hidden { display: none !important; }
+  .hint-box {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #eff6ff;
+    border-left: 3px solid #3b82f6;
+    font-size: 12px;
+    color: #1e3a8a;
+    border-radius: 4px;
+  }
+  .layer-editor-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 6px;
+  }
+  .layer-editor-table th, .layer-editor-table td {
+    border: 1px solid #cbd5e1;
+    padding: 6px;
+    text-align: center;
+  }
+  .layer-editor-table th {
+    background: #f8fafc;
+  }
+  .layer-editor-table input {
+    width: 68px;
+    padding: 4px;
+    text-align: center;
+    font-size: 13px;
+  }
+  .btn-small {
+    background: #e2e8f0;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 9px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn-small:hover { background: #cbd5e1; }
+  .btn-del { background: #fee2e2; color: #b91c1c; }
+  .btn-del:hover { background: #fecaca; }
+
+  /* ArborSonic 3D Authentic Panel Mirror (Traditional Chinese) */
+  .as-panel {
+    background: #f3f4f6;
+    border: 1.5px solid #9ca3af;
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .as-sec-hdr {
+    background: #d1d5db;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-top: 1px solid #9ca3af;
+    border-bottom: 1px solid #9ca3af;
+    color: #111827;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .as-sec-hdr:first-child { border-top: none; }
+  .as-sec-hdr span.en-tag {
+    font-size: 11.5px;
+    font-weight: 400;
+    color: #4b5563;
+  }
+  .as-row {
+    display: grid;
+    grid-template-columns: 1.35fr 1.05fr 46px 52px;
+    align-items: center;
+    padding: 5px 10px;
+    border-bottom: 1px solid #e5e7eb;
+    gap: 6px;
+  }
+  .as-row.highlight {
+    background: var(--highlight-bg);
+  }
+  .as-lbl {
+    color: #1f2937;
+    font-weight: 500;
+  }
+  .as-lbl small {
+    display: block;
+    color: #6b7280;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  .as-val-box {
+    background: #fff;
+    border: 1px solid #9ca3af;
+    padding: 4px 8px;
+    text-align: right;
+    font-weight: 700;
+    border-radius: 3px;
+    color: #0f172a;
+  }
+  .as-val-box.readonly {
+    background: var(--readonly-bg);
+    color: #334155;
+    font-weight: 600;
+  }
+  .as-row.highlight .as-val-box {
+    border: 1.5px solid var(--highlight-border);
+    color: #854d0e;
+    background: #fffbeb;
+  }
+  .as-unit {
+    color: #4b5563;
+    font-size: 12px;
+  }
+  .copy-mini {
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    cursor: pointer;
+    color: #334155;
+    font-family: inherit;
+  }
+  .copy-mini:hover {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  .as-layers-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    font-size: 12.5px;
+  }
+  .as-layers-tbl th {
+    background: #f9fafb;
+    border-bottom: 1px solid #9ca3af;
+    border-right: 1px solid #e5e7eb;
+    padding: 5px 4px;
+    font-weight: 600;
+    color: #374151;
+  }
+  .as-layers-tbl td {
+    padding: 5px 4px;
+    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;
+    text-align: center;
+    cursor: pointer;
+  }
+  .as-layers-tbl tr.selected td {
+    background: #2563eb;
+    color: #fff;
+    font-weight: 600;
+  }
+  .sf-banner {
+    padding: 12px 10px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1.35;
+    border-top: 1px solid #9ca3af;
+  }
+  .sf-low { background: var(--sf-green); color: #1a2e05; }
+  .sf-mod { background: var(--sf-yellow); color: #713f12; }
+  .sf-high { background: var(--sf-red); color: #450a0a; }
+  .action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .btn-main {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 13.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .btn-main:hover { background: var(--primary-mid); }
+  .btn-outline {
+    background: #fff;
+    color: #1e293b;
+    border: 1px solid #94a3b8;
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 13.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .btn-outline:hover { background: #f1f5f9; }
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #0f172a;
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="hero">
+    <h1>ArborSonic 3D 生物力學參數推算與繁體中文對照器 v3</h1>
+    <p>支援「圓形、橢圓形、矩形、不規則形 (Irregular / Irregular 3)」五種樹幹幾何形態修正 · 避免板根或偏心樹幹高估承重直徑</p>
+  </div>
+
+  <div class="layout">
+    <!-- 左側：現場實測條件與軟體選項輸入 -->
+    <div class="card">
+      <div class="card-title">
+        <span>1. 現場實測樹幹幾何與環境設定</span>
+      </div>
+
+      <!-- 樹幹幾何形狀 Scheme（完全對應軟體 Sensor Geometry -> Scheme 下拉選單） -->
+      <div class="geom-box">
+        <label style="font-size:14.5px; color:#1b5e20; margin-bottom:6px;">
+          樹幹橫切面幾何形狀 <span class="en">(Scheme — 對應軟體感測器幾何選項)</span>
+        </label>
+        <div class="scheme-tabs">
+          <button type="button" class="scheme-btn active" data-scheme="Circle">圓形<small>Circle</small></button>
+          <button type="button" class="scheme-btn" data-scheme="Ellipse">橢圓形<small>Ellipse</small></button>
+          <button type="button" class="scheme-btn" data-scheme="Irregular">不規則形<small>Irregular</small></button>
+          <button type="button" class="scheme-btn" data-scheme="Irregular 3">不規則 3<small>Irregular 3</small></button>
+          <button type="button" class="scheme-btn" data-scheme="Rectangle">矩形/方木<small>Rectangle</small></button>
+        </div>
+
+        <!-- 樹周長輸入（Circle / Ellipse / Irregular / Irregular 3 共用） -->
+        <div id="circInputBlock">
+          <label for="circInput" style="font-size:13.5px; color:#1b5e20;">
+            實測外圍樹周長 <span class="en">(Circumference, C)</span>
+          </label>
+          <div class="circ-row">
+            <input type="number" id="circInput" value="350" min="20" max="1500" step="1" />
+            <strong style="font-size:15px;">cm（公分）</strong>
+          </div>
+          <div class="preset-btns">
+            <button type="button" class="chip circ-chip" data-c="80">小樹 80 cm</button>
+            <button type="button" class="chip circ-chip" data-c="130">中型 130 cm</button>
+            <button type="button" class="chip circ-chip" data-c="220">成樹 220 cm</button>
+            <button type="button" class="chip circ-chip active" data-c="350">大樹 350 cm</button>
+            <button type="button" class="chip circ-chip" data-c="450">巨木 450 cm</button>
+          </div>
+        </div>
+
+        <!-- Ellipse 專屬輸入：長軸 D1 與短軸 D2 -->
+        <div id="ellipseBlock" class="sub-panel hidden">
+          <div style="font-size:12.5px; font-weight:700; color:#1b5e20; margin-bottom:6px;">
+            橢圓形樹幹長短軸量測 <span style="font-weight:400; color:#475569;">(用卡尺量測最大與最小直徑)</span>
+          </div>
+          <div class="grid-2">
+            <div class="input-group" style="margin-bottom:0;">
+              <label for="ellD1Input">長軸直徑 <span class="en">(D1, cm)</span></label>
+              <input type="number" id="ellD1Input" value="125" min="10" max="600" step="0.5" />
+            </div>
+            <div class="input-group" style="margin-bottom:0;">
+              <label for="ellD2Input">短軸直徑 <span class="en">(D2, cm — 最弱受力向)</span></label>
+              <input type="number" id="ellD2Input" value="95" min="10" max="600" step="0.5" />
+            </div>
+          </div>
+          <div style="margin-top:6px;">
+            <button type="button" class="btn-small" id="syncEllCircBtn">依 D1 / D2 自動估算橢圓周長 C</button>
+          </div>
+        </div>
+
+        <!-- Irregular / Irregular 3 專屬輸入：不規則形態修正 -->
+        <div id="irregularBlock" class="sub-panel hidden">
+          <div style="font-size:12.5px; font-weight:700; color:#1b5e20; margin-bottom:6px;">
+            不規則樹幹有效截面修正 <span style="font-weight:400; color:#475569;">(避免板根或縱溝使皮尺周長虛胖)</span>
+          </div>
+          <div class="input-group" style="margin-bottom:8px;">
+            <label for="irregModeSelect">修正計算方式</label>
+            <select id="irregModeSelect">
+              <option value="factor" selected>方式 A：依樹幹外型凹陷／板根程度選用折減係數</option>
+              <option value="span">方式 B：直接輸入卡尺實測「最大跨距 D1」與「最窄跨距 D2」</option>
+            </select>
+          </div>
+
+          <div id="irregFactorSub">
+            <label for="irregFactorInput">不規則截面折減係數 <span class="en">(有效直徑 ÷ 名義周長直徑)</span></label>
+            <input type="number" id="irregFactorInput" value="0.85" min="0.50" max="1.00" step="0.01" />
+            <div class="preset-btns">
+              <button type="button" class="chip irreg-chip" data-f="0.93">輕微不規則 (0.93)</button>
+              <button type="button" class="chip irreg-chip active" data-f="0.85">明顯偏心/凹凸 (0.85)</button>
+              <button type="button" class="chip irreg-chip" data-f="0.75">發達板根/深縱溝 (0.75)</button>
+            </div>
+          </div>
+
+          <div id="irregSpanSub" class="hidden">
+            <div class="grid-2">
+              <div class="input-group" style="margin-bottom:0;">
+                <label for="irregD1Input">最寬方向跨距 <span class="en">(D1, cm)</span></label>
+                <input type="number" id="irregD1Input" value="120" min="10" max="600" step="0.5" />
+              </div>
+              <div class="input-group" style="margin-bottom:0;">
+                <label for="irregD2Input">最窄方向跨距 <span class="en">(D2, cm)</span></label>
+                <input type="number" id="irregD2Input" value="85" min="10" max="600" step="0.5" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rectangle 專屬輸入：寬度 A 與深度 B -->
+        <div id="rectBlock" class="sub-panel hidden">
+          <div style="font-size:12.5px; font-weight:700; color:#1b5e20; margin-bottom:6px;">
+            矩形木構件 / 方木尺寸 <span style="font-weight:400; color:#475569;">(對應軟體 A 與 B 邊長)</span>
+          </div>
+          <div class="grid-2">
+            <div class="input-group" style="margin-bottom:0;">
+              <label for="rectAInput">寬度 <span class="en">(A, cm)</span></label>
+              <input type="number" id="rectAInput" value="80" min="5" max="500" step="0.5" />
+            </div>
+            <div class="input-group" style="margin-bottom:0;">
+              <label for="rectBInput">深度 <span class="en">(B, cm)</span></label>
+              <input type="number" id="rectBInput" value="60" min="5" max="500" step="0.5" />
+            </div>
+          </div>
+        </div>
+
+        <div class="derived-pill" id="geomPill">
+          名義周長換算直徑 = 111.4 cm ｜ 有效承重直徑 = 111.4 cm
+        </div>
+        <div id="geomWarnNote" class="warn-note hidden"></div>
+      </div>
+
+      <!-- Wind 風載重模型選擇 -->
+      <div class="wind-box">
+        <div class="input-group" style="margin-bottom:10px;">
+          <label for="windModelSelect">風載重模型 <span class="en">(Wind model — 對應軟體下拉選單)</span></label>
+          <select id="windModelSelect">
+            <option value="Uniform" selected>Uniform（均勻風載重模型 — 預設）</option>
+            <option value="EN1991">EN1991（歐規 EN 1991-1-4 風載重標準）</option>
+          </select>
+        </div>
+
+        <!-- Uniform 專屬設定 -->
+        <div id="uniformInputs">
+          <div class="input-group" style="margin-bottom:0;">
+            <label for="windVelInput">設定風速 <span class="en">(Wind velocity, m/s)</span></label>
+            <input type="number" id="windVelInput" value="33" min="5" max="80" step="1" />
+            <div class="preset-btns">
+              <button type="button" class="chip wind-chip active" data-v="33">預設 33 m/s</button>
+              <button type="button" class="chip wind-chip" data-v="40">強風 40 m/s</button>
+              <button type="button" class="chip wind-chip" data-v="45">沿海 45 m/s</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- EN1991 專屬設定 -->
+        <div id="en1991Inputs" class="hidden">
+          <div class="input-group" style="margin-bottom:10px;">
+            <label for="terrainSelect">地形類別 <span class="en">(Terrain — 對應軟體五種地況選項)</span></label>
+            <select id="terrainSelect">
+              <option value="Seashore">Seashore（海岸 / 海濱開闊區 — 風壓最高）</option>
+              <option value="Lakeside">Lakeside（湖畔 / 開闊水面）</option>
+              <option value="Agriculture">Agriculture（農田 / 開闊田野）</option>
+              <option value="Village">Village（鄉村 / 低矮聚落）</option>
+              <option value="City" selected>City（城市 / 高樓密集遮蔽區 — 風壓最低）</option>
+            </select>
+          </div>
+          <div class="grid-2">
+            <div class="input-group" style="margin-bottom:0;">
+              <label for="baseWindInput">基本風速 <span class="en">(Base wind velocity, m/s)</span></label>
+              <input type="number" id="baseWindInput" value="25" min="10" max="60" step="0.5" />
+              <div class="preset-btns">
+                <button type="button" class="chip bwind-chip active" data-bv="25">歐規 25 m/s</button>
+                <button type="button" class="chip bwind-chip" data-bv="32.5">台灣內陸 32.5</button>
+                <button type="button" class="chip bwind-chip" data-bv="42.5">台灣沿海 42.5</button>
+              </div>
+            </div>
+            <div class="input-group" style="margin-bottom:0;">
+              <label for="airTempInput">乾空氣溫度 <span class="en">(Dry air temp., °C)</span></label>
+              <input type="number" id="airTempInput" value="20" min="-10" max="45" step="1" />
+              <div class="preset-btns">
+                <button type="button" class="chip temp-chip" data-t="15">15 °C</button>
+                <button type="button" class="chip temp-chip active" data-t="20">20 °C</button>
+                <button type="button" class="chip temp-chip" data-t="28">28 °C</button>
+              </div>
+            </div>
+          </div>
+          <div class="hint-box">
+            <strong>EN1991 軟體操作提醒：</strong>選擇 <code>EN1991</code> 時，請在 <code>Crown model</code> 選用 <strong><code>Calculator</code></strong>（點擊計算機圖示輸入右側推算的寬度與高度）或 <code>Drawn</code> 照片描繪。
+          </div>
+        </div>
+      </div>
+
+      <!-- 樹幹傾角與樹種參數 -->
+      <div class="grid-2">
+        <div class="input-group">
+          <label for="leanDegInput">樹幹傾斜角度 <span class="en">(Degree of lean)</span></label>
+          <input type="number" id="leanDegInput" value="90" min="30" max="90" step="1" />
+          <div style="font-size:11.5px; color:#64748b; margin-top:4px;">90° 為完全垂直（預設）</div>
+        </div>
+        <div class="input-group">
+          <label for="leanDirSelect">傾斜方向 <span class="en">(Direction of lean)</span></label>
+          <select id="leanDirSelect">
+            <option value="North" selected>North（北）</option>
+            <option value="North East">North East（東北）</option>
+            <option value="East">East（東）</option>
+            <option value="South East">South East（東南）</option>
+            <option value="South">South（南）</option>
+            <option value="South West">South West（西南）</option>
+            <option value="West">West（西）</option>
+            <option value="North West">North West（西北）</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="input-group">
+          <label for="dragInput">阻力係數 <span class="en">(Drag factor)</span></label>
+          <input type="number" id="dragInput" value="0.22" min="0.05" max="1.0" step="0.01" />
+        </div>
+        <div class="input-group">
+          <label for="yieldInput">降伏強度 <span class="en">(Yield strength, MPa)</span></label>
+          <input type="number" id="yieldInput" value="19.7" min="1" max="100" step="0.1" />
+        </div>
+      </div>
+      <div class="preset-btns" style="margin-top:-6px; margin-bottom:14px;">
+        <button type="button" class="chip sp-chip active" data-cd="0.22" data-ys="19.7">目前樹種 (0.22 / 19.7 MPa)</button>
+        <button type="button" class="chip sp-chip" data-cd="0.25" data-ys="17.0">夜合花 (0.25 / 17.0 MPa)</button>
+        <button type="button" class="chip sp-chip" data-cd="0.25" data-ys="20.0">一般闊葉樹 (0.25 / 20.0 MPa)</button>
+      </div>
+
+      <!-- 切面腐朽比例輸入 -->
+      <div class="input-group" style="margin-bottom:0;">
+        <label style="display:flex; justify-content:space-between; align-items:center;">
+          <span>檢測切面資料 <span class="en">(Layers — 輸入斷層圖腐朽面積 %)</span></span>
+          <button type="button" class="btn-small" id="addLayerBtn">+ 新增切面</button>
+        </label>
+        <table class="layer-editor-table">
+          <thead>
+            <tr>
+              <th>切面名稱</th>
+              <th>離地高度 (cm)</th>
+              <th>腐朽面積 (%)</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="layerEditorBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 右側：ArborSonic 3D 繁體中文對照面板 -->
+    <div class="card">
+      <div class="card-title">
+        <span>2. ArborSonic 3D 繁體中文對照面板</span>
+        <span style="font-size:12px; font-weight:600; color:#854d0e; background:#fef9c3; padding:2px 8px; border-radius:6px;">黃底為建議填入軟體之參數</span>
+      </div>
+
+      <div class="as-panel">
+        <!-- Sensor Geometry 幾何設定對照 -->
+        <div class="as-sec-hdr">
+          <span>感測器幾何形狀設定</span>
+          <span class="en-tag">Sensor Geometry</span>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">幾何形狀 <small>Scheme</small></div>
+          <div class="as-val-box" id="dispScheme">Circle（圓形）</div>
+          <div class="as-unit"></div>
+          <div></div>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl" id="lblGeomDim1">外圍樹圍 <small>Circumference (C)</small></div>
+          <div class="as-val-box" id="dispGeomDim1">350.0</div>
+          <div class="as-unit">cm</div>
+          <div><button type="button" class="copy-mini" data-copy="dispGeomDim1">複製</button></div>
+        </div>
+        <div class="as-row hidden" id="rowGeomDim2">
+          <div class="as-lbl" id="lblGeomDim2">長軸 / 短軸 <small>D1 / D2</small></div>
+          <div class="as-val-box readonly" id="dispGeomDim2">125.0 / 95.0</div>
+          <div class="as-unit">cm</div>
+          <div></div>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">有效承重直徑 <small>Effective diameter（用於力學與樹冠推算）</small></div>
+          <div class="as-val-box readonly" id="dispEffDiam">111.4</div>
+          <div class="as-unit">cm</div>
+          <div></div>
+        </div>
+
+        <!-- Wind -->
+        <div class="as-sec-hdr">
+          <span>風載重設定</span>
+          <span class="en-tag">Wind</span>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">風載重模型 <small>Wind model</small></div>
+          <div class="as-val-box" id="dispWindModel">Uniform（均勻風載重）</div>
+          <div class="as-unit"></div>
+          <div></div>
+        </div>
+
+        <!-- Uniform 顯示列 -->
+        <div class="as-row" id="rowUniformVel">
+          <div class="as-lbl">風速 <small>Wind velocity</small></div>
+          <div class="as-val-box" id="dispWindVel">33</div>
+          <div class="as-unit">m/s</div>
+          <div><button type="button" class="copy-mini" data-copy="dispWindVel">複製</button></div>
+        </div>
+
+        <!-- EN1991 顯示列 -->
+        <div class="as-row hidden" id="rowEnTerrain">
+          <div class="as-lbl">地形類別 <small>Terrain</small></div>
+          <div class="as-val-box" id="dispTerrain">City（城市）</div>
+          <div class="as-unit"></div>
+          <div></div>
+        </div>
+        <div class="as-row hidden" id="rowEnBaseWind">
+          <div class="as-lbl">基本風速 <small>Base wind velocity</small></div>
+          <div class="as-val-box" id="dispBaseWind">25</div>
+          <div class="as-unit">m/s</div>
+          <div><button type="button" class="copy-mini" data-copy="dispBaseWind">複製</button></div>
+        </div>
+        <div class="as-row hidden" id="rowEnAirTemp">
+          <div class="as-lbl">乾空氣溫度 <small>Dry air temp.</small></div>
+          <div class="as-val-box" id="dispAirTemp">20</div>
+          <div class="as-unit">°C</div>
+          <div><button type="button" class="copy-mini" data-copy="dispAirTemp">複製</button></div>
+        </div>
+
+        <!-- Crown -->
+        <div class="as-sec-hdr">
+          <span>樹冠參數（依有效承重直徑自動推算）</span>
+          <span class="en-tag">Crown</span>
+        </div>
+        <div class="as-row highlight">
+          <div class="as-lbl">樹冠模型 <small>Crown model（建議選用）</small></div>
+          <div class="as-val-box" id="dispCrownModel">Manual（手動模式）</div>
+          <div class="as-unit"></div>
+          <div></div>
+        </div>
+        <div class="as-row highlight" id="rowCrownArea">
+          <div class="as-lbl">樹冠受風面積 <small>Area</small></div>
+          <div class="as-val-box" id="dispArea">138</div>
+          <div class="as-unit">m²</div>
+          <div><button type="button" class="copy-mini" data-copy="dispArea">複製</button></div>
+        </div>
+        <div class="as-row highlight hidden" id="rowCalcWidth">
+          <div class="as-lbl">計算機：樹冠寬度 <small>Calculator → Crown width</small></div>
+          <div class="as-val-box" id="dispCalcW">13.7</div>
+          <div class="as-unit">m</div>
+          <div><button type="button" class="copy-mini" data-copy="dispCalcW">複製</button></div>
+        </div>
+        <div class="as-row highlight hidden" id="rowCalcHeight">
+          <div class="as-lbl">計算機：樹冠高度 <small>Calculator → Crown height (Ellipse)</small></div>
+          <div class="as-val-box" id="dispCalcH">14</div>
+          <div class="as-unit">m</div>
+          <div><button type="button" class="copy-mini" data-copy="dispCalcH">複製</button></div>
+        </div>
+        <div class="as-row highlight" id="rowTopH">
+          <div class="as-lbl">樹冠頂部高度 <small>Top height</small></div>
+          <div class="as-val-box" id="dispTopH">18</div>
+          <div class="as-unit">m</div>
+          <div><button type="button" class="copy-mini" data-copy="dispTopH">複製</button></div>
+        </div>
+        <div class="as-row highlight" id="rowCenH">
+          <div class="as-lbl">樹冠中心高度 <small>Center height</small></div>
+          <div class="as-val-box" id="dispCenH">11</div>
+          <div class="as-unit">m</div>
+          <div><button type="button" class="copy-mini" data-copy="dispCenH">複製</button></div>
+        </div>
+        <div class="as-row highlight">
+          <div class="as-lbl">樹冠底部高度 <small>Bottom height</small></div>
+          <div class="as-val-box" id="dispBotH">4</div>
+          <div class="as-unit">m</div>
+          <div><button type="button" class="copy-mini" data-copy="dispBotH">複製</button></div>
+        </div>
+
+        <!-- Trunk -->
+        <div class="as-sec-hdr">
+          <span>樹幹參數</span>
+          <span class="en-tag">Trunk</span>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">傾斜角度 <small>Degree of lean</small></div>
+          <div class="as-val-box" id="dispLean">90</div>
+          <div class="as-unit">°</div>
+          <div><button type="button" class="copy-mini" data-copy="dispLean">複製</button></div>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">傾斜方向 <small>Direction of lean</small></div>
+          <div class="as-val-box" id="dispLeanDir">North（北）</div>
+          <div class="as-unit"></div>
+          <div></div>
+        </div>
+
+        <!-- Tree -->
+        <div class="as-sec-hdr">
+          <span>樹木力學推算值（軟體自動計算）</span>
+          <span class="en-tag">Tree</span>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">風力負荷 <small>Wind load</small></div>
+          <div class="as-val-box readonly" id="dispWindLoad">21375</div>
+          <div class="as-unit">N</div>
+          <div></div>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">加權中心高度 <small>Weighted center height</small></div>
+          <div class="as-val-box readonly" id="dispWCenter">11</div>
+          <div class="as-unit">m</div>
+          <div></div>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">阻力係數 <small>Drag factor</small></div>
+          <div class="as-val-box readonly" id="dispCd">0.22</div>
+          <div class="as-unit"></div>
+          <div></div>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">降伏強度 <small>Yield strength</small></div>
+          <div class="as-val-box readonly" id="dispYs">19.7</div>
+          <div class="as-unit">MPa</div>
+          <div></div>
+        </div>
+
+        <!-- Layers Table -->
+        <div class="as-sec-hdr">
+          <span>各切面安全評估總表（點擊列檢視明細）</span>
+          <span class="en-tag">Layers</span>
+        </div>
+        <table class="as-layers-tbl">
+          <thead>
+            <tr>
+              <th>切面名稱<br><small>Layer name</small></th>
+              <th>高度<br><small>Height</small></th>
+              <th>腐朽面積<br><small>Decayed</small></th>
+              <th>壁厚比<br><small>Avg. T/R</small></th>
+              <th>安全係數<br><small>Safety</small></th>
+              <th>風險等級<br><small>Risk rating</small></th>
+            </tr>
+          </thead>
+          <tbody id="asLayersBody"></tbody>
+        </table>
+
+        <!-- Details of selected layer -->
+        <div class="as-sec-hdr">
+          <span>選定切面詳細力學指標</span>
+          <span class="en-tag">Details of the selected layer</span>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">安全係數 <small>Safety factor</small></div>
+          <div class="as-val-box readonly" id="detSf">1303</div>
+          <div class="as-unit">%</div>
+          <div></div>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">風險等級 <small>Risk rating</small></div>
+          <div class="as-val-box readonly" id="detRisk">低風險 (Low risk)</div>
+          <div class="as-unit"></div>
+          <div></div>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">平均殘留壁厚比 <small>Avg. T/R（安全基準 ≥ 0.30）</small></div>
+          <div class="as-val-box readonly" id="detTr">1.00</div>
+          <div class="as-unit"></div>
+          <div></div>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">預估風力矩 <small>M（Bending moment）</small></div>
+          <div class="as-val-box readonly" id="detMoment">205200</div>
+          <div class="as-unit">N·m</div>
+          <div></div>
+        </div>
+        <div class="as-row">
+          <div class="as-lbl">預估最大應力 <small>Max stress</small></div>
+          <div class="as-val-box readonly" id="detStress">1.51</div>
+          <div class="as-unit">MPa</div>
+          <div></div>
+        </div>
+
+        <div id="sfBanner" class="sf-banner sf-low">
+          安全係數 (Safety Factor): 1303 %<br>低風險 (Low risk)
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <button type="button" class="btn-main" id="copyAllBtn">📋 一鍵複製完整參數與繁中對照表</button>
+        <button type="button" class="btn-outline" id="exportCsvBtn">📥 匯出 CSV 紀錄表</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast">已複製到剪貼簿</div>
+
+<script>
+const SCHEME_INFO = {
+  "Circle":      { zh: "Circle（圓形）" },
+  "Ellipse":     { zh: "Ellipse（橢圓形）" },
+  "Irregular":   { zh: "Irregular（不規則形）" },
+  "Irregular 3": { zh: "Irregular 3（不規則形 3 — 三點測距）" },
+  "Rectangle":   { zh: "Rectangle（矩形 / 方木）" }
+};
+
+const TERRAIN_INFO = {
+  Seashore:    { zh: "Seashore（海岸）",    z0: 0.003, zmin: 1,  kr: 0.156 },
+  Lakeside:    { zh: "Lakeside（湖畔）",    z0: 0.01,  zmin: 1,  kr: 0.170 },
+  Agriculture: { zh: "Agriculture（農田）", z0: 0.05,  zmin: 2,  kr: 0.190 },
+  Village:     { zh: "Village（鄉村）",     z0: 0.3,   zmin: 5,  kr: 0.215 },
+  City:        { zh: "City（城市）",        z0: 1.0,   zmin: 10, kr: 0.234 }
+};
+
+const DIR_ZH = {
+  "North": "North（北）",
+  "North East": "North East（東北）",
+  "East": "East（東）",
+  "South East": "South East（東南）",
+  "South": "South（南）",
+  "South West": "South West（西南）",
+  "West": "West（西）",
+  "North West": "North West（西北）"
+};
+
+let currentScheme = "Circle";
+let layers = [
+  { name: "Layer #1", height: 150, decay: 0 },
+  { name: "Layer #2", height: 140, decay: 0 }
+];
+let selectedLayerIdx = 1;
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(function() { t.classList.remove("show"); }, 2000);
+}
+
+function getRiskInfo(sfPct) {
+  if (sfPct > 150) return { zh: "低風險", en: "Low risk", cls: "sf-low" };
+  if (sfPct >= 100) return { zh: "中度風險", en: "Moderate risk", cls: "sf-mod" };
+  if (sfPct >= 50) return { zh: "高風險", en: "High risk", cls: "sf-high" };
+  return { zh: "極高風險", en: "Extreme risk", cls: "sf-high" };
+}
+
+function calcEn1991Exposure(terrainKey, zHeight) {
+  const cfg = TERRAIN_INFO[terrainKey] || TERRAIN_INFO.City;
+  const zEff = Math.max(cfg.zmin, Math.min(200, zHeight));
+  const lnVal = Math.log(zEff / cfg.z0);
+  const cr = cfg.kr * lnVal;
+  const iv = 1.0 / lnVal;
+  return cr * cr * (1.0 + 7.0 * iv);
+}
+
+// Ramanujan 橢圓周長近似公式
+function estimateEllipseCircumference(d1, d2) {
+  const a = d1 / 2.0;
+  const b = d2 / 2.0;
+  return Math.PI * (3 * (a + b) - Math.sqrt((3 * a + b) * (a + 3 * b)));
+}
+
+function updateSchemeUI() {
+  const isCircle = currentScheme === "Circle";
+  const isEllipse = currentScheme === "Ellipse";
+  const isIrreg = currentScheme === "Irregular" || currentScheme === "Irregular 3";
+  const isRect = currentScheme === "Rectangle";
+
+  document.getElementById("circInputBlock").classList.toggle("hidden", isRect);
+  document.getElementById("ellipseBlock").classList.toggle("hidden", !isEllipse);
+  document.getElementById("irregularBlock").classList.toggle("hidden", !isIrreg);
+  document.getElementById("rectBlock").classList.toggle("hidden", !isRect);
+
+  const irregMode = document.getElementById("irregModeSelect").value;
+  document.getElementById("irregFactorSub").classList.toggle("hidden", irregMode !== "factor");
+  document.getElementById("irregSpanSub").classList.toggle("hidden", irregMode !== "span");
+
+  document.getElementById("rowGeomDim2").classList.toggle("hidden", isCircle);
+}
+
+function renderLayerEditor() {
+  const tbody = document.getElementById("layerEditorBody");
+  tbody.innerHTML = layers.map(function(ly, idx) {
+    const delBtn = layers.length > 1
+      ? '<button type="button" class="btn-small btn-del" data-del="' + idx + '">刪除</button>'
+      : "-";
+    return (
+      "<tr>" +
+        "<td><strong>" + ly.name + "</strong></td>" +
+        '<td><input type="number" class="ly-h" data-idx="' + idx + '" value="' + ly.height + '" min="10" max="1000" step="10" /></td>' +
+        '<td><input type="number" class="ly-d" data-idx="' + idx + '" value="' + ly.decay + '" min="0" max="95" step="1" /></td>' +
+        "<td>" + delBtn + "</td>" +
+      "</tr>"
+    );
+  }).join("");
+
+  tbody.querySelectorAll(".ly-h").forEach(function(inp) {
+    inp.addEventListener("input", function(e) {
+      const i = parseInt(e.target.dataset.idx, 10);
+      layers[i].height = Math.max(1, parseFloat(e.target.value) || 0);
+      recalculate();
+    });
+  });
+  tbody.querySelectorAll(".ly-d").forEach(function(inp) {
+    inp.addEventListener("input", function(e) {
+      const i = parseInt(e.target.dataset.idx, 10);
+      layers[i].decay = Math.max(0, Math.min(95, parseFloat(e.target.value) || 0));
+      recalculate();
+    });
+  });
+  tbody.querySelectorAll("[data-del]").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      const i = parseInt(e.target.dataset.del, 10);
+      layers.splice(i, 1);
+      layers.forEach(function(l, k) { l.name = "Layer #" + (k + 1); });
+      if (selectedLayerIdx >= layers.length) selectedLayerIdx = layers.length - 1;
+      renderLayerEditor();
+      recalculate();
+    });
+  });
+}
+
+function toggleWindModelUI() {
+  const model = document.getElementById("windModelSelect").value;
+  const isEn = model === "EN1991";
+
+  document.getElementById("uniformInputs").classList.toggle("hidden", isEn);
+  document.getElementById("en1991Inputs").classList.toggle("hidden", !isEn);
+
+  document.getElementById("rowUniformVel").classList.toggle("hidden", isEn);
+  document.getElementById("rowEnTerrain").classList.toggle("hidden", !isEn);
+  document.getElementById("rowEnBaseWind").classList.toggle("hidden", !isEn);
+  document.getElementById("rowEnAirTemp").classList.toggle("hidden", !isEn);
+
+  document.getElementById("rowCrownArea").classList.toggle("hidden", isEn);
+  document.getElementById("rowTopH").classList.toggle("hidden", isEn);
+  document.getElementById("rowCenH").classList.toggle("hidden", isEn);
+  document.getElementById("rowCalcWidth").classList.toggle("hidden", !isEn);
+  document.getElementById("rowCalcHeight").classList.toggle("hidden", !isEn);
+}
+
+function recalculate() {
+  const cCm = Math.max(10, parseFloat(document.getElementById("circInput").value) || 100);
+  const nominalDCm = cCm / Math.PI;
+
+  // 依據幾何形狀計算「等效承重直徑 effDCm」與「最弱軸斷面模數 wSolidM3」
+  let effDCm = nominalDCm;
+  let wSolidM3 = Math.PI * Math.pow(nominalDCm / 100.0, 3) / 32.0;
+  let geomSummaryText = "";
+  let geomWarnText = "";
+  let dim1Label = "外圍樹圍 <small>Circumference (C)</small>";
+  let dim1Val = cCm.toFixed(1);
+  let dim2Label = "";
+  let dim2Val = "";
+
+  if (currentScheme === "Circle") {
+    effDCm = nominalDCm;
+    wSolidM3 = Math.PI * Math.pow(effDCm / 100.0, 3) / 32.0;
+    geomSummaryText =
+      "圓形截面：等效直徑 D = " + effDCm.toFixed(1) + " cm ｜ 半徑 R = " + (effDCm / 2).toFixed(1) + " cm";
+  } else if (currentScheme === "Ellipse") {
+    const d1 = Math.max(5, parseFloat(document.getElementById("ellD1Input").value) || 125);
+    const d2 = Math.max(5, parseFloat(document.getElementById("ellD2Input").value) || 95);
+    const major = Math.max(d1, d2);
+    const minor = Math.min(d1, d2);
+    effDCm = Math.sqrt(major * minor);
+    // 橢圓沿最弱受力方向（短軸 minor）之抗彎斷面模數 W_min = pi * D1 * D2^2 / 32
+    wSolidM3 = (Math.PI * (major / 100.0) * Math.pow(minor / 100.0, 2)) / 32.0;
+    geomSummaryText =
+      "橢圓截面：長軸 " + major.toFixed(1) + " cm × 短軸 " + minor.toFixed(1) +
+      " cm ｜ 等效直徑 = " + effDCm.toFixed(1) + " cm";
+    if (major / minor >= 1.2) {
+      geomWarnText =
+        "注意：樹幹呈明顯橢圓（長短軸比 " + (major / minor).toFixed(2) +
+        "），若直接用皮尺周長當真圓算，會高估短軸方向抗彎強度約 " +
+        Math.round((1 - (major * minor * minor) / Math.pow(nominalDCm, 3)) * 100) + "%。";
+    }
+    dim2Label = "長軸 D1 / 短軸 D2 <small>Ellipse axes</small>";
+    dim2Val = major.toFixed(1) + " / " + minor.toFixed(1);
+  } else if (currentScheme === "Irregular" || currentScheme === "Irregular 3") {
+    const irregMode = document.getElementById("irregModeSelect").value;
+    if (irregMode === "factor") {
+      const factor = Math.max(0.4, Math.min(1.0, parseFloat(document.getElementById("irregFactorInput").value) || 0.85));
+      effDCm = nominalDCm * factor;
+      wSolidM3 = Math.PI * Math.pow(effDCm / 100.0, 3) / 32.0;
+      geomSummaryText =
+        "名義周長換算直徑 = " + nominalDCm.toFixed(1) + " cm × 折減係數 " + factor.toFixed(2) +
+        " → 有效承重直徑 = " + effDCm.toFixed(1) + " cm";
+      dim2Label = "不規則截面折減係數 <small>Shape irregularity factor</small>";
+      dim2Val = factor.toFixed(2) + "（折減後 " + effDCm.toFixed(1) + " cm）";
+    } else {
+      const id1 = Math.max(5, parseFloat(document.getElementById("irregD1Input").value) || 120);
+      const id2 = Math.max(5, parseFloat(document.getElementById("irregD2Input").value) || 85);
+      const major = Math.max(id1, id2);
+      const minor = Math.min(id1, id2);
+      effDCm = Math.sqrt(major * minor);
+      wSolidM3 = (Math.PI * (major / 100.0) * Math.pow(minor / 100.0, 2)) / 32.0;
+      geomSummaryText =
+        "名義周長直徑 = " + nominalDCm.toFixed(1) + " cm → 依卡尺跨距 (" +
+        major.toFixed(1) + " × " + minor.toFixed(1) + " cm) 修正有效直徑 = " + effDCm.toFixed(1) + " cm";
+      dim2Label = "實測跨距 D1 / D2 <small>Caliper spans</small>";
+      dim2Val = major.toFixed(1) + " / " + minor.toFixed(1);
+    }
+    const overEstPct = Math.round((1 - Math.pow(effDCm / nominalDCm, 3)) * 100);
+    if (overEstPct > 5) {
+      geomWarnText =
+        "已套用不規則形狀修正：若未修正而直接以皮尺周長 " + cCm +
+        " cm 視為真圓，抗彎剛度將會被高估約 " + overEstPct + "%。";
+    }
+  } else if (currentScheme === "Rectangle") {
+    const rectA = Math.max(5, parseFloat(document.getElementById("rectAInput").value) || 80);
+    const rectB = Math.max(5, parseFloat(document.getElementById("rectBInput").value) || 60);
+    const perim = 2 * (rectA + rectB);
+    const longSide = Math.max(rectA, rectB);
+    const shortSide = Math.min(rectA, rectB);
+    effDCm = Math.sqrt((4 * rectA * rectB) / Math.PI);
+    wSolidM3 = ((longSide / 100.0) * Math.pow(shortSide / 100.0, 2)) / 6.0;
+    geomSummaryText =
+      "矩形截面：" + rectA.toFixed(1) + " × " + rectB.toFixed(1) + " cm（周長 " +
+      perim.toFixed(1) + " cm ｜ 等效圓直徑 = " + effDCm.toFixed(1) + " cm）";
+    dim1Label = "矩形邊長 A × B <small>Rectangle sides</small>";
+    dim1Val = rectA.toFixed(1) + " × " + rectB.toFixed(1);
+    dim2Label = "換算外圍周長 <small>Perimeter</small>";
+    dim2Val = perim.toFixed(1);
+  }
+
+  document.getElementById("geomPill").textContent = geomSummaryText;
+  const warnEl = document.getElementById("geomWarnNote");
+  if (geomWarnText) {
+    warnEl.textContent = geomWarnText;
+    warnEl.classList.remove("hidden");
+  } else {
+    warnEl.classList.add("hidden");
+  }
+
+  // 更新右側感測器幾何設定欄位
+  document.getElementById("dispScheme").textContent = SCHEME_INFO[currentScheme].zh;
+  document.getElementById("lblGeomDim1").innerHTML = dim1Label;
+  document.getElementById("dispGeomDim1").textContent = dim1Val;
+  if (dim2Label) {
+    document.getElementById("lblGeomDim2").innerHTML = dim2Label;
+    document.getElementById("dispGeomDim2").textContent = dim2Val;
+  }
+  document.getElementById("dispEffDiam").textContent = effDCm.toFixed(1);
+
+  // 讀取風載重與力學設定
+  const windModel = document.getElementById("windModelSelect").value;
+  const windV = Math.max(1, parseFloat(document.getElementById("windVelInput").value) || 33);
+  const terrainKey = document.getElementById("terrainSelect").value;
+  const baseWind = Math.max(1, parseFloat(document.getElementById("baseWindInput").value) || 25);
+  const airTemp = parseFloat(document.getElementById("airTempInput").value);
+  const validTemp = isNaN(airTemp) ? 20 : airTemp;
+
+  const leanDeg = Math.max(30, Math.min(90, parseFloat(document.getElementById("leanDegInput").value) || 90));
+  const leanDir = document.getElementById("leanDirSelect").value;
+  const cd = Math.max(0.01, parseFloat(document.getElementById("dragInput").value) || 0.22);
+  const ys = Math.max(0.5, parseFloat(document.getElementById("yieldInput").value) || 19.7);
+
+  const effDM = effDCm / 100.0;
+
+  // 依「有效承重直徑」異速生長比例推算樹冠參數
+  const topH = Math.round(Math.max(4, Math.min(32, 16.8 * Math.pow(effDM, 0.55))));
+  let botH = Math.round(Math.max(1, Math.min(8, topH * 0.22)));
+  if (botH >= topH - 1) botH = Math.max(0.5, topH - 2);
+  const cenRaw = (botH + topH) / 2.0;
+  const cenH = Number.isInteger(cenRaw) ? cenRaw : Number(cenRaw.toFixed(1));
+
+  const crownH = topH - botH;
+  const crownW = Number((12.8 * Math.pow(effDM, 0.65)).toFixed(1));
+  const areaFactor = windModel === "EN1991" ? (Math.PI / 4.0) : 0.72;
+  const area = Number((Math.max(2, crownH * crownW * areaFactor)).toFixed(1));
+
+  // 計算風力負荷
+  let windLoad = 0;
+  let rho = 1.293;
+  if (windModel === "Uniform") {
+    windLoad = Math.round(0.5 * rho * Math.pow(windV, 2) * area * cd);
+  } else {
+    rho = 101325.0 / (287.05 * (validTemp + 273.15));
+    const ce = calcEn1991Exposure(terrainKey, cenH);
+    const qb = 0.5 * rho * Math.pow(baseWind, 2);
+    windLoad = Math.round(qb * ce * area * cd);
+  }
+
+  const leanRad = ((90 - leanDeg) * Math.PI) / 180.0;
+  const leanExtraFactor = 1.0 + Math.sin(leanRad) * 0.65;
+
+  // 更新右側面板顯示
+  document.getElementById("dispWindModel").textContent =
+    windModel === "Uniform" ? "Uniform（均勻風載重）" : "EN1991（歐規標準）";
+  document.getElementById("dispWindVel").textContent = windV;
+  document.getElementById("dispTerrain").textContent = (TERRAIN_INFO[terrainKey] || TERRAIN_INFO.City).zh;
+  document.getElementById("dispBaseWind").textContent = baseWind;
+  document.getElementById("dispAirTemp").textContent = validTemp;
+
+  document.getElementById("dispCrownModel").textContent =
+    windModel === "Uniform" ? "Manual（手動模式）" : "Calculator（計算機模式）";
+  document.getElementById("dispArea").textContent = Math.round(area);
+  document.getElementById("dispCalcW").textContent = crownW;
+  document.getElementById("dispCalcH").textContent = crownH;
+  document.getElementById("dispTopH").textContent = topH;
+  document.getElementById("dispCenH").textContent = cenH;
+  document.getElementById("dispBotH").textContent = botH;
+
+  document.getElementById("dispLean").textContent = leanDeg;
+  document.getElementById("dispLeanDir").textContent = DIR_ZH[leanDir] || leanDir;
+  document.getElementById("dispWindLoad").textContent = windLoad;
+  document.getElementById("dispWCenter").textContent = cenH;
+  document.getElementById("dispCd").textContent = cd;
+  document.getElementById("dispYs").textContent = ys;
+
+  const computedLayers = layers.map(function(ly) {
+    const zM = ly.height / 100.0;
+    const lever = Math.max(0.5, cenH - zM);
+    const moment = Math.round(windLoad * lever * leanExtraFactor);
+    const decayRatio = Math.max(0, Math.min(0.95, ly.decay / 100.0));
+    const avgTrVal = Math.floor((1.0 - Math.sqrt(decayRatio)) * 100.0 + 1e-9) / 100.0;
+    const wSec = wSolidM3 * (1.0 - Math.pow(decayRatio, 2));
+    const stressMpa = wSec > 0 ? (moment / wSec) / 1e6 : 999;
+    const sfPct = stressMpa > 0 ? Math.round((ys / stressMpa) * 100) : 0;
+    const risk = getRiskInfo(sfPct);
+
+    return {
+      name: ly.name,
+      height: ly.height,
+      decay: ly.decay,
+      avgTr: avgTrVal.toFixed(2),
+      moment: moment,
+      stressMpa: stressMpa.toFixed(2),
+      sfPct: sfPct,
+      risk: risk
+    };
+  });
+
+  const asBody = document.getElementById("asLayersBody");
+  asBody.innerHTML = computedLayers.map(function(cl, idx) {
+    const cls = idx === selectedLayerIdx ? ' class="selected"' : "";
+    return (
+      "<tr" + cls + ' data-sel="' + idx + '">' +
+        "<td>" + cl.name + "</td>" +
+        "<td>" + cl.height + " cm</td>" +
+        "<td>" + cl.decay + " %</td>" +
+        "<td>" + cl.avgTr + "</td>" +
+        "<td>" + cl.sfPct + " %</td>" +
+        "<td>" + cl.risk.zh + "</td>" +
+      "</tr>"
+    );
+  }).join("");
+
+  asBody.querySelectorAll("tr").forEach(function(tr) {
+    tr.addEventListener("click", function() {
+      selectedLayerIdx = parseInt(tr.dataset.sel, 10);
+      recalculate();
+    });
+  });
+
+  const sel = computedLayers[selectedLayerIdx] || computedLayers[0];
+  if (sel) {
+    document.getElementById("detSf").textContent = sel.sfPct;
+    document.getElementById("detRisk").textContent = sel.risk.zh + " (" + sel.risk.en + ")";
+    document.getElementById("detTr").textContent =
+      sel.avgTr + (parseFloat(sel.avgTr) < 0.3 ? "（低於 0.30 警戒線）" : "");
+    document.getElementById("detMoment").textContent = sel.moment;
+    document.getElementById("detStress").textContent = sel.stressMpa;
+  }
+
+  const weakest = computedLayers.reduce(function(min, cur) {
+    return cur.sfPct < min.sfPct ? cur : min;
+  }, computedLayers[0]);
+
+  if (weakest) {
+    const banner = document.getElementById("sfBanner");
+    banner.className = "sf-banner " + weakest.risk.cls;
+    banner.innerHTML =
+      "安全係數 (Safety Factor): " + weakest.sfPct + " %<br>" +
+      weakest.risk.zh + " (" + weakest.risk.en + ")";
+  }
+
+  window._latestState = {
+    scheme: currentScheme,
+    cCm: cCm,
+    nominalDCm: nominalDCm,
+    effDCm: effDCm,
+    geomSummaryText: geomSummaryText,
+    windModel: windModel,
+    windV: windV,
+    terrainKey: terrainKey,
+    baseWind: baseWind,
+    airTemp: validTemp,
+    area: Math.round(area),
+    crownW: crownW,
+    crownH: crownH,
+    topH: topH,
+    cenH: cenH,
+    botH: botH,
+    leanDeg: leanDeg,
+    leanDir: leanDir,
+    windLoad: windLoad,
+    cd: cd,
+    ys: ys,
+    computedLayers: computedLayers
+  };
+}
+
+// 幾何形狀切換按鈕
+document.querySelectorAll(".scheme-btn").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll(".scheme-btn").forEach(function(b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    currentScheme = btn.dataset.scheme;
+    updateSchemeUI();
+    recalculate();
+  });
+});
+
+document.getElementById("irregModeSelect").addEventListener("change", function() {
+  updateSchemeUI();
+  recalculate();
+});
+
+document.getElementById("syncEllCircBtn").addEventListener("click", function() {
+  const d1 = Math.max(5, parseFloat(document.getElementById("ellD1Input").value) || 125);
+  const d2 = Math.max(5, parseFloat(document.getElementById("ellD2Input").value) || 95);
+  const estC = estimateEllipseCircumference(d1, d2);
+  document.getElementById("circInput").value = estC.toFixed(1);
+  document.querySelectorAll(".circ-chip").forEach(function(b) { b.classList.remove("active"); });
+  recalculate();
+  showToast("已依橢圓長短軸估算周長 C = " + estC.toFixed(1) + " cm");
+});
+
+document.querySelectorAll(".irreg-chip").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll(".irreg-chip").forEach(function(b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    document.getElementById("irregFactorInput").value = btn.dataset.f;
+    recalculate();
+  });
+});
+
+document.getElementById("irregFactorInput").addEventListener("input", function() {
+  document.querySelectorAll(".irreg-chip").forEach(function(b) { b.classList.remove("active"); });
+  recalculate();
+});
+
+["ellD1Input", "ellD2Input", "irregD1Input", "irregD2Input", "rectAInput", "rectBInput"].forEach(function(id) {
+  document.getElementById(id).addEventListener("input", recalculate);
+});
+
+// 風載重與基本輸入綁定
+document.getElementById("windModelSelect").addEventListener("change", function() {
+  toggleWindModelUI();
+  recalculate();
+});
+document.getElementById("terrainSelect").addEventListener("change", recalculate);
+document.getElementById("leanDirSelect").addEventListener("change", recalculate);
+
+document.getElementById("circInput").addEventListener("input", function() {
+  document.querySelectorAll(".circ-chip").forEach(function(b) { b.classList.remove("active"); });
+  recalculate();
+});
+document.getElementById("windVelInput").addEventListener("input", function() {
+  document.querySelectorAll(".wind-chip").forEach(function(b) { b.classList.remove("active"); });
+  recalculate();
+});
+document.getElementById("baseWindInput").addEventListener("input", function() {
+  document.querySelectorAll(".bwind-chip").forEach(function(b) { b.classList.remove("active"); });
+  recalculate();
+});
+document.getElementById("airTempInput").addEventListener("input", function() {
+  document.querySelectorAll(".temp-chip").forEach(function(b) { b.classList.remove("active"); });
+  recalculate();
+});
+["leanDegInput", "dragInput", "yieldInput"].forEach(function(id) {
+  document.getElementById(id).addEventListener("input", recalculate);
+});
+
+document.querySelectorAll(".circ-chip").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll(".circ-chip").forEach(function(b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    document.getElementById("circInput").value = btn.dataset.c;
+    recalculate();
+  });
+});
+
+document.querySelectorAll(".wind-chip").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll(".wind-chip").forEach(function(b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    document.getElementById("windVelInput").value = btn.dataset.v;
+    recalculate();
+  });
+});
+
+document.querySelectorAll(".bwind-chip").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll(".bwind-chip").forEach(function(b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    document.getElementById("baseWindInput").value = btn.dataset.bv;
+    recalculate();
+  });
+});
+
+document.querySelectorAll(".temp-chip").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll(".temp-chip").forEach(function(b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    document.getElementById("airTempInput").value = btn.dataset.t;
+    recalculate();
+  });
+});
+
+document.querySelectorAll(".sp-chip").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll(".sp-chip").forEach(function(b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    document.getElementById("dragInput").value = btn.dataset.cd;
+    document.getElementById("yieldInput").value = btn.dataset.ys;
+    recalculate();
+  });
+});
+
+document.getElementById("addLayerBtn").addEventListener("click", function() {
+  const nextNum = layers.length + 1;
+  const lastH = layers.length ? Math.max(20, layers[layers.length - 1].height - 10) : 130;
+  layers.push({ name: "Layer #" + nextNum, height: lastH, decay: 0 });
+  selectedLayerIdx = layers.length - 1;
+  renderLayerEditor();
+  recalculate();
+});
+
+document.querySelectorAll(".copy-mini").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    const val = document.getElementById(btn.dataset.copy).textContent.trim();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(val).then(function() { showToast("已複製數值：" + val); });
+    } else {
+      showToast("數值：" + val);
+    }
+  });
+});
+
+document.getElementById("copyAllBtn").addEventListener("click", function() {
+  const s = window._latestState;
+  if (!s) return;
+  const windLines = s.windModel === "Uniform"
+    ? [
+        "• 風載重模型 (Wind model)：Uniform",
+        "• 風速 (Wind velocity)：" + s.windV + " m/s"
+      ]
+    : [
+        "• 風載重模型 (Wind model)：EN1991",
+        "• 地形類別 (Terrain)：" + s.terrainKey,
+        "• 基本風速 (Base wind velocity)：" + s.baseWind + " m/s",
+        "• 乾空氣溫度 (Dry air temp.)：" + s.airTemp + " °C"
+      ];
+  const crownLines = s.windModel === "Uniform"
+    ? [
+        "• 樹冠模型 (Crown model)：Manual",
+        "• 面積 (Area)：" + s.area + " m²",
+        "• 頂部高度 (Top height)：" + s.topH + " m",
+        "• 中心高度 (Center height)：" + s.cenH + " m",
+        "• 底部高度 (Bottom height)：" + s.botH + " m"
+      ]
+    : [
+        "• 樹冠模型 (Crown model)：Calculator（寬 " + s.crownW + " m × 高 " + s.crownH + " m，Ellipse）",
+        "• 底部高度 (Bottom height)：" + s.botH + " m"
+      ];
+
+  const lines = [
+    "【ArborSonic 3D 生物力學參數設定與繁中對照】",
+    "• 樹幹幾何形狀 (Scheme)：" + s.scheme,
+    "• 截面尺寸摘要：" + s.geomSummaryText,
+    "----------------------------------------",
+    "[風載重 Wind]"
+  ].concat(windLines, ["[樹冠 Crown — 依有效承重直徑推算]"], crownLines, [
+    "[樹幹 Trunk]",
+    "• 傾斜角度 (Degree of lean)：" + s.leanDeg + " °",
+    "• 傾斜方向 (Direction of lean)：" + s.leanDir,
+    "[樹木力學參數 Tree]",
+    "• 預估風力負荷 (Wind load)：" + s.windLoad + " N",
+    "• 加權中心高度 (Weighted center height)：" + s.cenH + " m",
+    "• 阻力係數 (Drag factor)：" + s.cd,
+    "• 降伏強度 (Yield strength)：" + s.ys + " MPa",
+    "[切面安全評估總表 Layers]"
+  ], s.computedLayers.map(function(l) {
+    return "• " + l.name + "（高度 " + l.height + " cm）：腐朽 " + l.decay + "% ｜ Avg. T/R = " + l.avgTr + " ｜ 安全係數 " + l.sfPct + "%（" + l.risk.zh + " / " + l.risk.en + "）";
+  }));
+
+  const fullStr = lines.join("\n");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(fullStr).then(function() { showToast("已複製完整參數與繁中對照表！"); });
+  } else {
+    alert(fullStr);
+  }
+});
+
+document.getElementById("exportCsvBtn").addEventListener("click", function() {
+  const s = window._latestState;
+  if (!s) return;
+  const rows = [
+    ["項目名稱(繁中)", "原軟體欄位(英文)", "數值", "單位"],
+    ["幾何形狀", "Scheme", s.scheme, ""],
+    ["外圍樹幹圓周長", "Circumference", s.cCm, "cm"],
+    ["有效承重直徑", "Effective Diameter", s.effDCm.toFixed(1), "cm"],
+    ["風載重模型", "Wind model", s.windModel, ""]
+  ];
+  if (s.windModel === "Uniform") {
+    rows.push(["風速", "Wind velocity", s.windV, "m/s"]);
+  } else {
+    rows.push(["地形類別", "Terrain", s.terrainKey, ""]);
+    rows.push(["基本風速", "Base wind velocity", s.baseWind, "m/s"]);
+    rows.push(["乾空氣溫度", "Dry air temp.", s.airTemp, "°C"]);
+  }
+  rows.push(
+    ["樹冠受風面積", "Area", s.area, "m2"],
+    ["樹冠寬度(計算機)", "Crown width", s.crownW, "m"],
+    ["樹冠高度(計算機)", "Crown height", s.crownH, "m"],
+    ["樹冠頂部高度", "Top height", s.topH, "m"],
+    ["樹冠中心高度", "Center height", s.cenH, "m"],
+    ["樹冠底部高度", "Bottom height", s.botH, "m"],
+    ["傾斜角度", "Degree of lean", s.leanDeg, "°"],
+    ["傾斜方向", "Direction of lean", s.leanDir, ""],
+    ["預估風力負荷", "Wind load", s.windLoad, "N"],
+    ["阻力係數", "Drag factor", s.cd, ""],
+    ["降伏強度", "Yield strength", s.ys, "MPa"],
+    [],
+    ["切面名稱", "離地高度(cm)", "腐朽面積(%)", "平均殘留壁厚比(Avg. T/R)", "預估安全係數(%)", "風險等級"]
+  );
+  s.computedLayers.forEach(function(l) {
+    rows.push([l.name, l.height, l.decay, l.avgTr, l.sfPct, l.risk.zh + " (" + l.risk.en + ")"]);
+  });
+  const csvStr = "\uFEFF" + rows.map(function(r) { return r.join(","); }).join("\n");
+  const blob = new Blob([csvStr], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "ArborSonic_生物力學參數推算_" + s.scheme + "_樹圍" + s.cCm + "cm.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 3000);
+});
+
+updateSchemeUI();
+toggleWindModelUI();
+renderLayerEditor();
+recalculate();
+</script>
+</body>
+</html>
